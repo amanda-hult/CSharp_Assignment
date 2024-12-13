@@ -24,7 +24,7 @@ public class ContactService : IContactService
         {
             StoredContact storedContact = ContactFactory.Create(contactRegistration);
             _contacts.Add(storedContact);
-            SaveContacts();
+            SaveContacts(_contacts);
             return true;
         }
         //lägg eventuellt till flera catch för specifika undantag
@@ -55,6 +55,18 @@ public class ContactService : IContactService
         }
     }
 
+    public StoredContact GetStoredContactById(string contactId)
+    {
+        var storedContact = _contacts.FirstOrDefault(contact => contact.ContactId == contactId);
+        if (storedContact == null)
+        {
+            Debug.WriteLine($"Contact with id {contactId} was not found");
+        }
+
+        return storedContact!;
+
+    }
+
     public bool DeleteContact(int index)
     {
         if (index < 0 || index >= _contacts.Count)
@@ -65,7 +77,7 @@ public class ContactService : IContactService
         try
         {
             _contacts.RemoveAt(index);
-            SaveContacts();
+            SaveContacts(_contacts);
             return true;
         }
         catch (Exception ex)
@@ -75,34 +87,26 @@ public class ContactService : IContactService
         }
     }
 
-    public bool ValidateContact(ContactRegistration contact, out List<string> errors)
-    {
-        errors = new List<string>();
-
-        var validationResults  = new List<ValidationResult>();
-        var validationContext = new ValidationContext(contact);
-
-        bool isValid = Validator.TryValidateObject(contact, validationContext, validationResults, true);
-
-        if (!isValid)
-        {
-            foreach (var validationResult in validationResults)
-            {
-                errors.Add(validationResult.ErrorMessage ?? "Invalid input");
-            }
-        }
-        return isValid;
-    }
-
-    public void SaveContacts()
+    public void SaveContacts<T>(List<T> contacts) where T : class
     {
         try
         {
-            _fileService.SaveListToFile(_contacts);
+            _fileService.SaveListToFile(contacts);
         }
         catch (Exception ex)
         {
             Debug.WriteLine($"Failed to save contact: {ex.Message}");
         }
+    }
+
+    public ResponseResult<ContactRegistration> IsEmailAvailable(string email)
+    {
+        bool emailAvailable = !_contacts.Any(contact => string.Equals(contact.Email, email, StringComparison.OrdinalIgnoreCase));
+
+        return new ResponseResult<ContactRegistration>
+        {
+            Success = emailAvailable,
+            Message = emailAvailable ? "" : "The email address is not available."
+        };
     }
 }

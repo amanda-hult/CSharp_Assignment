@@ -2,15 +2,20 @@
 using Business.Models;
 using Business.Interfaces;
 using Presentation.ConsoleApp.Interfaces;
+using System.ComponentModel.DataAnnotations;
+using Business.Helpers;
 
 namespace Presentation.ConsoleApp.Services;
 
 public class MenuService : IMenuService
 {
     private readonly IContactService _contactService;
-    public MenuService(IContactService contactService)
+    private readonly InputValidator _inputValidator;
+
+    public MenuService(IContactService contactService, InputValidator inputValidator)
     {
         _contactService = contactService;
+        _inputValidator = inputValidator;
     }
 
     public void MainMenu()
@@ -22,15 +27,16 @@ public class MenuService : IMenuService
             Console.WriteLine("\n###############-----MAIN MENU-----###############");
             Console.WriteLine("\n1. Add contact");
             Console.WriteLine("\n2. Show all contacts");
-            Console.WriteLine("\n3. Delete contact");
-            Console.WriteLine("\n4. Exit");
+            Console.WriteLine("\n3. Edit contact");
+            Console.WriteLine("\n4. Delete contact");
+            Console.WriteLine("\n5. Exit");
             Console.WriteLine("\n##################################################");
             Console.Write("\nChoose your menu option: ");
             userInput = Console.ReadLine()!;
 
             MenuOptionSelector(userInput);
         }
-        while (userInput != "4");
+        while (userInput != "5");
     }
 
     public void MenuOptionSelector(string userInput)
@@ -44,9 +50,12 @@ public class MenuService : IMenuService
                 ShowAllContacts();
                 break;
             case "3":
-                DeleteContact();
+                EditContact();
                 break;
             case "4":
+                DeleteContact();
+                break;
+            case "5":
                 ExitApp();
                 break;
             default:
@@ -57,53 +66,43 @@ public class MenuService : IMenuService
 
     public void AddContact()
     {
-        ContactRegistration contactRegistration = ContactFactory.Create();
-
         Console.Clear();
         Console.WriteLine("\n###############-----ADD CONTACT-----###############");
 
-        Console.Write("\nEnter first name: ");
-        contactRegistration.FirstName = Console.ReadLine();
+        ContactRegistration contactRegistration = ContactFactory.Create();
 
-        Console.Write("\nEnter last name: ");
-        contactRegistration.LastName = Console.ReadLine();
-
-        Console.Write("\nEnter email address: ");
-        contactRegistration.Email = Console.ReadLine();
-
-        Console.Write("\nEnter phone number: ");
-        contactRegistration.Phone = Console.ReadLine();
-
-        Console.Write("\nEnter address: ");
-        contactRegistration.Address = Console.ReadLine();
-
-        Console.Write("\nEnter postcode: ");
-        contactRegistration.Postcode = Console.ReadLine();
-
-        Console.Write("\nEnter city: ");
-        contactRegistration.City = Console.ReadLine();
-
-        //Ändring - Validera i varje iteration
-        if (_contactService.ValidateContact(contactRegistration, out var errors))
+        contactRegistration.FirstName = _inputValidator.GetValidatedInput<ContactRegistration>("Enter first name: ", nameof(ContactRegistration.FirstName));
+        contactRegistration.LastName = _inputValidator.GetValidatedInput<ContactRegistration>("Enter last name: ", nameof(ContactRegistration.LastName));
+        while (true)
         {
-            bool result = _contactService.CreateContact(contactRegistration);
-            if (result)
+            string email = _inputValidator.GetValidatedInput<ContactRegistration>("Enter email: ", nameof(ContactRegistration.Email));
+
+            var emailCheck = _contactService.IsEmailAvailable(email);
+            if (emailCheck.Success)
             {
-                Console.WriteLine("\nContact was added successfully.");
+                contactRegistration.Email = email;
+                break;
             }
             else
             {
-                Console.WriteLine("\nContact was not added.");
+                Console.WriteLine($"{emailCheck.Message}");
             }
+        }
+        contactRegistration.Phone = _inputValidator.GetValidatedInput<ContactRegistration>("Enter phone number: ", nameof(ContactRegistration.Phone));
+        contactRegistration.Address = _inputValidator.GetValidatedInput<ContactRegistration>("Enter address: ", nameof(ContactRegistration.Address));
+        contactRegistration.Postcode = _inputValidator.GetValidatedInput<ContactRegistration>("Enter postcode: ", nameof(ContactRegistration.Postcode));
+        contactRegistration.City = _inputValidator.GetValidatedInput<ContactRegistration>("Enter city: ", nameof(ContactRegistration.City));
+
+        bool result = _contactService.CreateContact(contactRegistration);
+        if (result)
+        {
+            Console.WriteLine("\nContact was added successfully.");
         }
         else
         {
-            Console.WriteLine("\nContact was not added. The following errors occured: ");
-            foreach (var error in errors)
-            {
-                Console.WriteLine($"\n{error}");
-            }
+            Console.WriteLine("\nContact was not added.");
         }
+
         Console.WriteLine("\nPress any key to return to main menu");
         Console.ReadKey();
     }
@@ -122,7 +121,7 @@ public class MenuService : IMenuService
         }
         else
         {
-            var index = 1;
+            int index = 1;
             foreach (var contact in contacts)
             {
                 Console.WriteLine($"{index}. {contact.GetBriefContactDetails()}");
@@ -136,6 +135,85 @@ public class MenuService : IMenuService
                 ShowContactDetails(selectedContact);
             }
         }
+    }
+
+    public void EditContact()
+    {
+        var contacts = _contactService.GetAllContacts();
+
+        Console.Clear();
+        Console.WriteLine("\n###############-----EDIT CONTACT-----###############");
+
+        if (contacts.Count == 0)
+        {
+            Console.WriteLine("\nNo contacts to show.");
+            Console.WriteLine("\nPress any key to return to main menu");
+            Console.ReadKey();
+            return;
+        }
+        while (true)
+        {
+            Console.Clear();
+
+            Console.WriteLine("\t\tAll contacts:\n");
+            var index = 1;
+            foreach (var contact in contacts)
+            {
+                Console.WriteLine($"{index}. {contact.FirstName} {contact.LastName}");
+                index++;
+            }
+
+            Console.Write("\nEnter the number of the contact you want to edit. Press 'q' to return to main menu: ");
+            var input = Console.ReadLine();
+            if (int.TryParse(input, out int selectedIndex) && selectedIndex > 0 && selectedIndex <= contacts.Count)
+            {
+                var selectedContact = contacts[selectedIndex - 1];
+                Console.WriteLine($"{selectedContact.GetContactDetails()}");
+
+                var storedContact = _contactService.GetStoredContactById(selectedContact.ContactId);
+
+                Console.WriteLine("Enter new contact information. Press enter to keep the current contact information");
+
+                storedContact.FirstName = _inputValidator.GetOptionalValidatedInput<StoredContact>("Enter new first name: ", nameof(StoredContact.FirstName), storedContact);
+                storedContact.LastName = _inputValidator.GetOptionalValidatedInput<StoredContact>("Enter new last name: ", nameof(StoredContact.LastName), storedContact);
+                while (true)
+                {
+                    string email = _inputValidator.GetOptionalValidatedInput<StoredContact>("Enter new email: ", nameof(StoredContact.Email), storedContact);
+
+                    var emailCheck = _contactService.IsEmailAvailable(email);
+                    if (emailCheck.Success || string.Equals(email, selectedContact.Email, StringComparison.OrdinalIgnoreCase))
+                    {
+                        selectedContact.Email = email;
+                        break;
+                    }
+                    else
+                    {
+                        Console.WriteLine($"{emailCheck.Message}");
+                    }
+                }
+                storedContact.Phone = _inputValidator.GetOptionalValidatedInput<StoredContact>("Enter new phone number: ", nameof(StoredContact.Phone), storedContact);
+                storedContact.Address = _inputValidator.GetOptionalValidatedInput<StoredContact>("Enter new address: ", nameof(StoredContact.Address), storedContact);
+                storedContact.Postcode = _inputValidator.GetOptionalValidatedInput<StoredContact>("Enter new postcode: ", nameof(StoredContact.Postcode), storedContact);
+                storedContact.City = _inputValidator.GetOptionalValidatedInput<StoredContact>("Enter new city: ", nameof(StoredContact.City), storedContact);
+
+
+                _contactService.SaveContacts(contacts);
+
+                    Console.WriteLine("\nContact was updated successfully.");
+                break;
+            }
+            else if (input.Equals("q", StringComparison.OrdinalIgnoreCase))
+            {
+                MainMenu();
+                return;
+            }
+            else
+            {
+                Console.WriteLine("Invalid number. Press any key to try again.");
+                Console.ReadKey();
+            }
+        }
+
     }
 
     public void DeleteContact()

@@ -4,6 +4,7 @@ using Business.Interfaces;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.DependencyInjection;
 using Presentation.ConsoleApp.Interfaces;
+using Business.Helpers;
 
 
 var host = Host.CreateDefaultBuilder()
@@ -12,6 +13,7 @@ var host = Host.CreateDefaultBuilder()
         services.AddSingleton<IFileService>(new FileService(fileName: "contacts.json"));
         services.AddScoped<IContactService, ContactService>();
         services.AddTransient<IMenuService, MenuService>();
+        services.AddTransient<InputValidator>();
     })
     .Build();
 

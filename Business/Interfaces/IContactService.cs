@@ -6,7 +6,8 @@ public interface IContactService
 {
     bool CreateContact(ContactRegistration contactRegistration);
     List<DisplayedContact> GetAllContacts();
+    StoredContact GetStoredContactById(string contactId);
     bool DeleteContact(int index);
-    bool ValidateContact(ContactRegistration contactRegistration, out List<string> errors);
-    void SaveContacts();
+    void SaveContacts<T>(List<T> contacts) where T : class;
+    ResponseResult<ContactRegistration> IsEmailAvailable(string email);
 }

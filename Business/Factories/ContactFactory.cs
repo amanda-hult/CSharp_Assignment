@@ -12,6 +12,7 @@ public class ContactFactory
 
     public static StoredContact Create(ContactRegistration contactRegistration)
     {
+        //try/catch
         return new StoredContact()
         {
             ContactId = UniqueIdGenerator.GenerateUniqueId(),
@@ -29,6 +30,7 @@ public class ContactFactory
     {
         return new DisplayedContact()
         {
+            ContactId = storedContact.ContactId,
             FirstName = storedContact.FirstName,
             LastName = storedContact.LastName,
             Email = storedContact.Email.ToLower(),
