@@ -184,7 +184,6 @@ public class MenuService : IMenuService
                 else
                 {
                     DisplayHelper.ShowMessage("Invalid number. Press any key to try again.", pause: true);
-                    await ShowAllContacts();
                 }
             }
             else if (input.KeyChar.ToString().Equals("q", StringComparison.OrdinalIgnoreCase))
@@ -264,6 +263,8 @@ public class MenuService : IMenuService
     {
         DisplayHelper.ShowMessage("Invalid input. Try Again.", pause: true);
     }
+
+
 
     public async Task EditSelectedContact(DisplayedContact selectedContact)
     {
