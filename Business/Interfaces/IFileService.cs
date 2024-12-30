@@ -2,6 +2,6 @@
 
 public interface IFileService
 {
-    void SaveListToFile<T>(List<T> list);
-    List<T> LoadListFromFile<T>();
+    Task<bool> SaveListToFileAsync<T>(string content);
+    Task<string> LoadListFromFileAsync<T>();
 }

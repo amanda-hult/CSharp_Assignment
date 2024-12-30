@@ -2,5 +2,5 @@
 
 public interface IMenuService
 {
-    void MainMenu();
+    Task MainMenu();
 }

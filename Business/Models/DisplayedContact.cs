@@ -19,16 +19,4 @@ public class DisplayedContact : BaseContact
     //    City = city;
     //}
 
-    public string GetBriefContactDetails()
-    {
-        return $"{FirstName} {LastName} - {City}";
-    }
-
-    public string GetContactDetails()
-    {
-        return $"Name: {FirstName} {LastName}\n" +
-               $"Email: {Email}\n" +
-               $"Phone: {Phone}\n" +
-               $"Address: {Address} {Postcode} {City}\n";
-    }
 }

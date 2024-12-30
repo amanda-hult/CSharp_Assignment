@@ -4,10 +4,10 @@ namespace Business.Interfaces;
 
 public interface IContactService
 {
-    bool CreateContact(ContactRegistration contactRegistration);
-    List<DisplayedContact> GetAllContacts();
+    Task<ResponseResult<StoredContact>> CreateContact(ContactRegistration contactRegistration);
+    Task<ResponseResult<List<DisplayedContact>>> GetAllContacts();
     StoredContact GetStoredContactById(string contactId);
-    bool DeleteContact(int index);
-    void SaveContacts<T>(List<T> contacts) where T : class;
+    Task<bool> DeleteContact(int index);
+    Task SaveContacts();
     ResponseResult<ContactRegistration> IsEmailAvailable(string email);
 }

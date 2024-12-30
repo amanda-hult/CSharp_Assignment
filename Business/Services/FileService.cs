@@ -1,7 +1,5 @@
 ﻿using System.Diagnostics;
-using System.Text.Json;
 using Business.Interfaces;
-using Business.Models;
 
 namespace Business.Services;
 
@@ -10,47 +8,47 @@ public class FileService : IFileService
 
     private readonly string _directoryPath;
     private readonly string _filePath;
-    private readonly JsonSerializerOptions _jsonSerializerOptions;
+
 
     public FileService(string directoryPath = "Data", string fileName = "list.json")
     {
         _directoryPath = directoryPath;
         _filePath = Path.Combine(directoryPath, fileName);
-        _jsonSerializerOptions = new JsonSerializerOptions { WriteIndented = true };
+
     }
 
     //implementera async/await
-    public void SaveListToFile<T>(List<T> list)
+    public async Task<bool> SaveListToFileAsync<T>(string content)
     {
         try
         {
             if (!Directory.Exists(_directoryPath))
                 Directory.CreateDirectory(_directoryPath);
 
-            var json = JsonSerializer.Serialize(list, _jsonSerializerOptions);
-            File.WriteAllText(_filePath, json);
+            await File.WriteAllTextAsync(_filePath, content);
+            return true;
         }
         catch (Exception ex)
         {
             Debug.WriteLine(ex.Message);
+            return false;
         }
     }
 
-    public List<T> LoadListFromFile<T>()
+    public async Task<string> LoadListFromFileAsync<T>()
     {
         try
         {
             if (!File.Exists(_filePath))
-                return [];
+                return null!;
 
-            var json = File.ReadAllText(_filePath);
-            var list = JsonSerializer.Deserialize<List<T>>(json, _jsonSerializerOptions);
-            return list ?? [];
+            return await File.ReadAllTextAsync(_filePath);
+
         }
         catch (Exception ex)
         {
             Debug.WriteLine(ex.Message);
-            return [];
+            return null!;
         }
     }
 }

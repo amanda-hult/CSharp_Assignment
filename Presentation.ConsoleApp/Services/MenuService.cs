@@ -2,8 +2,8 @@
 using Business.Models;
 using Business.Interfaces;
 using Presentation.ConsoleApp.Interfaces;
-using System.ComponentModel.DataAnnotations;
 using Business.Helpers;
+using Presentation.ConsoleApp.Helpers;
 
 namespace Presentation.ConsoleApp.Services;
 
@@ -18,13 +18,13 @@ public class MenuService : IMenuService
         _inputValidator = inputValidator;
     }
 
-    public void MainMenu()
+    public async Task MainMenu()
     {
         string userInput;
         do
         {
             Console.Clear();
-            Console.WriteLine("\n###############-----MAIN MENU-----###############");
+            DisplayHelper.ShowHeader("MAIN MENU");
             Console.WriteLine("\n1. Add contact");
             Console.WriteLine("\n2. Show all contacts");
             Console.WriteLine("\n3. Edit contact");
@@ -34,29 +34,29 @@ public class MenuService : IMenuService
             Console.Write("\nChoose your menu option: ");
             userInput = Console.ReadLine()!;
 
-            MenuOptionSelector(userInput);
+            await MenuOptionSelector(userInput);
         }
         while (userInput != "5");
     }
 
-    public void MenuOptionSelector(string userInput)
+    public async Task MenuOptionSelector(string userInput)
     {
         switch (userInput)
         {
             case "1":
-                AddContact();
+                await AddContact();
                 break;
             case "2":
-                ShowAllContacts();
+                await ShowAllContacts();
                 break;
             case "3":
-                EditContact();
+                await EditContact();
                 break;
             case "4":
-                DeleteContact();
+                await DeleteContact();
                 break;
             case "5":
-                ExitApp();
+                await ExitApp();
                 break;
             default:
                 InvalidInput();
@@ -64,251 +64,253 @@ public class MenuService : IMenuService
         }
     }
 
-    public void AddContact()
+    public async Task AddContact()
     {
         Console.Clear();
-        Console.WriteLine("\n###############-----ADD CONTACT-----###############");
+        DisplayHelper.ShowHeader("ADD CONTACT");
 
         ContactRegistration contactRegistration = ContactFactory.Create();
 
-        contactRegistration.FirstName = _inputValidator.GetValidatedInput<ContactRegistration>("Enter first name: ", nameof(ContactRegistration.FirstName));
-        contactRegistration.LastName = _inputValidator.GetValidatedInput<ContactRegistration>("Enter last name: ", nameof(ContactRegistration.LastName));
-        while (true)
-        {
-            string email = _inputValidator.GetValidatedInput<ContactRegistration>("Enter email: ", nameof(ContactRegistration.Email));
+        contactRegistration.FirstName = _inputValidator.GetValidatedInput<ContactRegistration>("Enter first name: ", nameof(ContactRegistration.FirstName), () => Console.ReadLine());
+        contactRegistration.LastName = _inputValidator.GetValidatedInput<ContactRegistration>("Enter last name: ", nameof(ContactRegistration.LastName), () => Console.ReadLine());
+        contactRegistration.Email = _inputValidator.GetValidatedEmail<ContactRegistration>("Enter email: ", nameof(ContactRegistration.Email), () => Console.ReadLine());
+        contactRegistration.Phone = _inputValidator.GetValidatedInput<ContactRegistration>("Enter phone number: ", nameof(ContactRegistration.Phone), () => Console.ReadLine());
+        contactRegistration.Address = _inputValidator.GetValidatedInput<ContactRegistration>("Enter address: ", nameof(ContactRegistration.Address), () => Console.ReadLine());
+        contactRegistration.Postcode = _inputValidator.GetValidatedInput<ContactRegistration>("Enter postcode: ", nameof(ContactRegistration.Postcode), () => Console.ReadLine());
+        contactRegistration.City = _inputValidator.GetValidatedInput<ContactRegistration>("Enter city: ", nameof(ContactRegistration.City), () => Console.ReadLine());
 
-            var emailCheck = _contactService.IsEmailAvailable(email);
-            if (emailCheck.Success)
+        var result = await _contactService.CreateContact(contactRegistration);
+        DisplayHelper.ShowMessage($"{result.Message}");
+
+        DisplayHelper.ShowMessage("Press enter to return to main menu.", pause: true);
+    }
+
+    //try/catch?
+    public async Task ShowAllContacts()
+    {
+        var response = await _contactService.GetAllContacts();
+        Console.Clear();
+        DisplayHelper.ShowHeader("ALL CONTACTS");
+
+        if (!response.Success)
+        {
+            DisplayHelper.ShowMessage("Failed to load contacts. Press enter to return to main menu.", pause: true);
+            return;
+        }
+
+        var contacts = response.Result;
+
+        if (contacts.Count == 0)
+        {
+            DisplayHelper.ShowMessage("No contacts to show. Press enter to return to main menu.", pause: true);
+            return;
+        }
+
+        for (int i = 0; i < contacts.Count; i++)
+        {
+            DisplayHelper.ShowMessage($"{i + 1}. {DisplayHelper.GetBriefContactDetails(contacts[i])}");
+        }
+
+        DisplayHelper.ShowMessage($"\nEnter the number of a contact to see all details, or press 'q' to return to the main menu.");
+        var input = Console.ReadKey(true);
+        if (char.IsDigit(input.KeyChar))
+        {
+            int selectedIndex = int.Parse(input.KeyChar.ToString());
+            if (selectedIndex > 0 && selectedIndex <= contacts.Count)
             {
-                contactRegistration.Email = email;
-                break;
+                var selectedContact = contacts[selectedIndex - 1];
+                await ShowContactDetails(selectedContact);
             }
             else
             {
-                Console.WriteLine($"{emailCheck.Message}");
+                DisplayHelper.ShowMessage("Invalid number.Press any key to try again: ", pause: true);
+                await ShowAllContacts();
             }
         }
-        contactRegistration.Phone = _inputValidator.GetValidatedInput<ContactRegistration>("Enter phone number: ", nameof(ContactRegistration.Phone));
-        contactRegistration.Address = _inputValidator.GetValidatedInput<ContactRegistration>("Enter address: ", nameof(ContactRegistration.Address));
-        contactRegistration.Postcode = _inputValidator.GetValidatedInput<ContactRegistration>("Enter postcode: ", nameof(ContactRegistration.Postcode));
-        contactRegistration.City = _inputValidator.GetValidatedInput<ContactRegistration>("Enter city: ", nameof(ContactRegistration.City));
-
-        bool result = _contactService.CreateContact(contactRegistration);
-        if (result)
+        else if (input.KeyChar.ToString().Equals("q", StringComparison.OrdinalIgnoreCase))
         {
-            Console.WriteLine("\nContact was added successfully.");
+            await MainMenu();
         }
         else
         {
-            Console.WriteLine("\nContact was not added.");
+            DisplayHelper.ShowMessage("Invalid input.Press any key to try again: ", pause: true);
+            await ShowAllContacts();
         }
-
-        Console.WriteLine("\nPress any key to return to main menu");
-        Console.ReadKey();
     }
 
-    public void ShowAllContacts()
+    public async Task ShowContactDetails(DisplayedContact contact)
     {
-        var contacts = _contactService.GetAllContacts();
         Console.Clear();
-        Console.WriteLine("\n###############-----ALL CONTACTS-----###############");
+        DisplayHelper.ShowHeader("CONTACT DETAILS");
+        DisplayHelper.ShowMessage($"{DisplayHelper.GetContactDetails(contact)}");
 
-        if (contacts.Count == 0)
-        {
-            Console.WriteLine("\nNo contacts to show.");
-            Console.WriteLine("\nPress any key to return to main menu");
-            Console.ReadKey();
-        }
+        DisplayHelper.ShowMessage("Press \"C\" to return to contact list, press any other key to return to main menu.", pause: false);
+        var userInput = Console.ReadKey(true);
+        if (userInput.KeyChar.ToString().Equals("c", StringComparison.OrdinalIgnoreCase))
+            await ShowAllContacts();
         else
-        {
-            int index = 1;
-            foreach (var contact in contacts)
-            {
-                Console.WriteLine($"{index}. {contact.GetBriefContactDetails()}");
-                index++;
-            }
-
-            Console.Write($"\nEnter the number of a contact to see all details, or press any other key to return to the main menu.");
-            if (int.TryParse(Console.ReadLine(), out int selectedIndex) && selectedIndex > 0 && selectedIndex <= contacts.Count)
-            {
-                var selectedContact = contacts[selectedIndex - 1];
-                ShowContactDetails(selectedContact);
-            }
-        }
+            await MainMenu();
     }
 
-    public void EditContact()
+    public async Task EditContact()
     {
-        var contacts = _contactService.GetAllContacts();
-
         Console.Clear();
-        Console.WriteLine("\n###############-----EDIT CONTACT-----###############");
+        DisplayHelper.ShowHeader("EDIT CONTACT");
+
+        var response = await _contactService.GetAllContacts();
+        var contacts = response.Result;
 
         if (contacts.Count == 0)
         {
-            Console.WriteLine("\nNo contacts to show.");
-            Console.WriteLine("\nPress any key to return to main menu");
-            Console.ReadKey();
+            DisplayHelper.ShowMessage("No contacts to show. Press any key to return to main menu", pause: true);
             return;
         }
+
         while (true)
         {
-            Console.Clear();
+            DisplayHelper.DisplayContacts(contacts);
 
-            Console.WriteLine("\t\tAll contacts:\n");
-            var index = 1;
-            foreach (var contact in contacts)
+            DisplayHelper.ShowMessage("Enter the number of the contact you want to edit. Press 'q' to return to main menu.", pause: false);
+
+            var input = Console.ReadKey(true);
+            if (char.IsDigit(input.KeyChar))
             {
-                Console.WriteLine($"{index}. {contact.FirstName} {contact.LastName}");
-                index++;
-            }
-
-            Console.Write("\nEnter the number of the contact you want to edit. Press 'q' to return to main menu: ");
-            var input = Console.ReadLine();
-            if (int.TryParse(input, out int selectedIndex) && selectedIndex > 0 && selectedIndex <= contacts.Count)
-            {
-                var selectedContact = contacts[selectedIndex - 1];
-                Console.WriteLine($"{selectedContact.GetContactDetails()}");
-
-                var storedContact = _contactService.GetStoredContactById(selectedContact.ContactId);
-
-                Console.WriteLine("Enter new contact information. Press enter to keep the current contact information");
-
-                storedContact.FirstName = _inputValidator.GetOptionalValidatedInput<StoredContact>("Enter new first name: ", nameof(StoredContact.FirstName), storedContact);
-                storedContact.LastName = _inputValidator.GetOptionalValidatedInput<StoredContact>("Enter new last name: ", nameof(StoredContact.LastName), storedContact);
-                while (true)
+                int selectedIndex = int.Parse(input.KeyChar.ToString());
+                if (selectedIndex > 0 && selectedIndex <= contacts.Count)
                 {
-                    string email = _inputValidator.GetOptionalValidatedInput<StoredContact>("Enter new email: ", nameof(StoredContact.Email), storedContact);
-
-                    var emailCheck = _contactService.IsEmailAvailable(email);
-                    if (emailCheck.Success || string.Equals(email, selectedContact.Email, StringComparison.OrdinalIgnoreCase))
-                    {
-                        selectedContact.Email = email;
-                        break;
-                    }
-                    else
-                    {
-                        Console.WriteLine($"{emailCheck.Message}");
-                    }
+                    await EditSelectedContact(contacts[selectedIndex - 1]);
+                    break;
                 }
-                storedContact.Phone = _inputValidator.GetOptionalValidatedInput<StoredContact>("Enter new phone number: ", nameof(StoredContact.Phone), storedContact);
-                storedContact.Address = _inputValidator.GetOptionalValidatedInput<StoredContact>("Enter new address: ", nameof(StoredContact.Address), storedContact);
-                storedContact.Postcode = _inputValidator.GetOptionalValidatedInput<StoredContact>("Enter new postcode: ", nameof(StoredContact.Postcode), storedContact);
-                storedContact.City = _inputValidator.GetOptionalValidatedInput<StoredContact>("Enter new city: ", nameof(StoredContact.City), storedContact);
-
-
-                _contactService.SaveContacts(contacts);
-
-                    Console.WriteLine("\nContact was updated successfully.");
-                break;
+                else
+                {
+                    DisplayHelper.ShowMessage("Invalid number. Press any key to try again.", pause: true);
+                    await ShowAllContacts();
+                }
             }
-            else if (input.Equals("q", StringComparison.OrdinalIgnoreCase))
+            else if (input.KeyChar.ToString().Equals("q", StringComparison.OrdinalIgnoreCase))
             {
-                MainMenu();
-                return;
+                await MainMenu();
             }
             else
             {
-                Console.WriteLine("Invalid number. Press any key to try again.");
-                Console.ReadKey();
+                DisplayHelper.ShowMessage("Invalid input. Press any key to try again.", pause: true);
+                await ShowAllContacts();
             }
         }
-
     }
 
-    public void DeleteContact()
+    public async Task DeleteContact()
     {
-        var contacts = _contactService.GetAllContacts();
         Console.Clear();
-        Console.WriteLine("\n###############-----DELETE CONTACT-----###############");
+        DisplayHelper.ShowHeader("DELETE CONTACT");
+
+        var response = await _contactService.GetAllContacts();
+        var contacts = response.Result;
 
         if (contacts.Count == 0)
         {
-            Console.WriteLine("\nNo contacts to show.");
-            Console.WriteLine("\nPress any key to return to main menu");
-            Console.ReadKey();
+            DisplayHelper.ShowMessage("No contacts to show. Press any key to return to main menu.", pause: true);
             return;
         }
+
         while (true)
         {
-            Console.Clear();
+            DisplayHelper.DisplayContacts(contacts);
 
-            Console.WriteLine("\t\tAll contacts:\n");
-            var index = 1;
-            foreach (var contact in contacts)
-            {
-                Console.WriteLine($"{index}. {contact.FirstName} {contact.LastName}");
-                index++;
-            }
+            DisplayHelper.ShowMessage("Enter the number of the contact you want to delete. Press 'q' to return to main menu:", pause: false);
+            var input = Console.ReadKey(true);
 
-            Console.Write("\nEnter the number of the contact you want to delete. Press 'q' to return to main menu: ");
-            var input = Console.ReadLine();
-            if (int.TryParse(input, out int selectedIndex) && selectedIndex > 0 && selectedIndex <= contacts.Count)
+            if (char.IsDigit(input.KeyChar))
             {
-                bool result = _contactService.DeleteContact(selectedIndex - 1);
-                if (result)
+                int selectedIndex = int.Parse(input.KeyChar.ToString());
+                if (selectedIndex > 0 && selectedIndex <= contacts.Count)
                 {
-                    Console.WriteLine($"Contact was successfully deleted. Press any key to return to main menu.");
-                    Console.ReadKey();
-                    contacts = _contactService.GetAllContacts();
+                    await ConfirmAndDeleteContact(contacts, selectedIndex - 1);
                     return;
                 }
                 else
                 {
-                    Console.WriteLine("Something went wrong. The user could not be deleted.");
-                    Console.ReadKey();
-                    return;
+                    DisplayHelper.ShowMessage("Invalid number. Press any key to try again.", pause: true);
                 }
             }
-            else if (input.Equals("q", StringComparison.OrdinalIgnoreCase))
+            else if (input.KeyChar.ToString().Equals("q", StringComparison.OrdinalIgnoreCase))
             {
-                MainMenu();
+                await MainMenu();
                 return;
             }
             else
             {
-                Console.WriteLine("Invalid number. Press any key to try again.");
-                Console.ReadKey();
+                DisplayHelper.ShowMessage("Invalid input. Press any key to try again.", pause: true);
             }
         }
     }
 
-    public void ExitApp()
+    public async Task ExitApp()
     {
         Console.Clear();
-        Console.Write("You are exiting the app. Do you want to continue (y/n)?: ");
-        var userInput = Console.ReadLine();
-        if (userInput!.Equals("y", StringComparison.OrdinalIgnoreCase))
+        DisplayHelper.ShowMessage("You are exiting the app. Do you want to continue (y/n)?", pause: false);
+        var userInput = Console.ReadKey(true);
+        if (userInput.KeyChar.ToString().Equals("y", StringComparison.OrdinalIgnoreCase))
         {
             Environment.Exit(0);
         }
         else
         {
-            MainMenu();
+            await MainMenu();
         }
     }
 
     public void InvalidInput()
     {
-        Console.WriteLine("Invalid input. Try Again.");
-        Console.ReadLine();
+        DisplayHelper.ShowMessage("Invalid input. Try Again.", pause: true);
     }
 
-    public void ShowContactDetails(DisplayedContact contact)
+    public async Task EditSelectedContact(DisplayedContact selectedContact)
     {
         Console.Clear();
-        Console.WriteLine("\n###############-----CONTACT DETAILS-----###############");
-        Console.WriteLine($"{contact.GetContactDetails()}");
-        //Console.WriteLine($"Name: {contact.FirstName} {contact.LastName}");
-        //Console.WriteLine($"Email: {contact.Email}");
-        //Console.WriteLine($"Phone: {contact.Phone}");
-        //Console.WriteLine($"Address: {contact.Address} {contact.Postcode} {contact.City}");
+        DisplayHelper.ShowMessage($"{DisplayHelper.GetContactDetails(selectedContact)}");
 
-        Console.WriteLine("\nPress \"C\" to return to contact list, press any other key to return to main menu.");
-        string userInput = Console.ReadLine();
-        if (userInput!.Equals("c", StringComparison.OrdinalIgnoreCase))
-            ShowAllContacts();
+        var storedContact = _contactService.GetStoredContactById(selectedContact.ContactId);
+
+        DisplayHelper.ShowMessage("Enter new contact information. Press enter to keep the current contact information.", pause: false);
+
+        storedContact.FirstName = _inputValidator.GetOptionalValidatedInput<StoredContact>("Enter new first name: ", nameof(StoredContact.FirstName), storedContact, () => Console.ReadLine());
+        storedContact.LastName = _inputValidator.GetOptionalValidatedInput<StoredContact>("Enter new last name: ", nameof(StoredContact.LastName), storedContact, () => Console.ReadLine());
+        storedContact.Email = _inputValidator.GetValidatedEmail<StoredContact>("Enter new email: ", nameof(StoredContact.Email), () => Console.ReadLine(), storedContact.Email);
+        storedContact.Phone = _inputValidator.GetOptionalValidatedInput<StoredContact>("Enter new phone number: ", nameof(StoredContact.Phone), storedContact, () => Console.ReadLine());
+        storedContact.Address = _inputValidator.GetOptionalValidatedInput<StoredContact>("Enter new address: ", nameof(StoredContact.Address), storedContact, () => Console.ReadLine());
+        storedContact.Postcode = _inputValidator.GetOptionalValidatedInput<StoredContact>("Enter new postcode: ", nameof(StoredContact.Postcode), storedContact, () => Console.ReadLine());
+        storedContact.City = _inputValidator.GetOptionalValidatedInput<StoredContact>("Enter new city: ", nameof(StoredContact.City), storedContact, () => Console.ReadLine());
+
+        await _contactService.SaveContacts();
+
+        DisplayHelper.ShowMessage("Contact was updated successfully.", pause: true);
+    }
+
+    public async Task ConfirmAndDeleteContact(List<DisplayedContact> contacts, int index)
+    {
+        var contactToDelete = contacts[index];
+        Console.Clear();
+        DisplayHelper.ShowMessage($"Please confirm that you want to delete {contactToDelete.FirstName} {contactToDelete.LastName} from the contactlist (Y).", pause: false);
+        var userInput = Console.ReadKey(true);
+
+        if (userInput.KeyChar.ToString().Equals("y", StringComparison.OrdinalIgnoreCase))
+        {
+            bool result = await _contactService.DeleteContact(index);
+            if (result)
+            {
+                DisplayHelper.ShowMessage($"Contact {contactToDelete.FirstName} {contactToDelete.LastName} was successfully deleted.", pause: false);
+                //_contactService.GetAllContacts();
+            }
+            else
+            {
+                DisplayHelper.ShowMessage("Something went wrong. The user could not be deleted.", pause: false);
+            }
+        }
         else
-            MainMenu();
+        {
+            DisplayHelper.ShowMessage("The contact was not deleted.", pause: false);
+        }
+        DisplayHelper.ShowMessage("Press any key to return to main menu.", pause: true);
     }
 }

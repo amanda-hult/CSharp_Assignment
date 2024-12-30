@@ -1,7 +1,6 @@
-﻿using System.ComponentModel.DataAnnotations;
-using System.Diagnostics;
-using System.Text.Json;
+﻿using System.Diagnostics;
 using Business.Factories;
+using Business.Helpers;
 using Business.Interfaces;
 using Business.Models;
 
@@ -9,51 +8,120 @@ namespace Business.Services;
 
 public class ContactService : IContactService
 {
-    private readonly IFileService _fileService;
-    private List<StoredContact> _contacts;
+    private readonly IContactRepository<StoredContact> _contactRepository;
 
-    public ContactService(IFileService fileService)
+    private List<StoredContact> _contacts = [];
+
+    public ContactService(IContactRepository<StoredContact> contactRepository)
     {
-        _fileService = fileService;
-        _contacts = _fileService.LoadListFromFile<StoredContact>();
+        _contactRepository = contactRepository;
     }
 
-    public bool CreateContact(ContactRegistration contactRegistration)
+    public async Task InitializeAsync()
     {
+        _contacts = await _contactRepository.GetFromFileAsync() ?? new List<StoredContact>();
+    }
+
+    public async Task<ResponseResult<StoredContact>> CreateContact(ContactRegistration contactRegistration)
+    {
+        var createdContact = ContactFactory.Create(contactRegistration);
+
+        if (!createdContact.Success)
+        {
+            return new ResponseResult<StoredContact>
+            {
+                Success = false,
+                Message = createdContact.Message
+            };
+        }
         try
         {
-            StoredContact storedContact = ContactFactory.Create(contactRegistration);
+            var storedContact = createdContact.Result!;
+            storedContact.ContactId = UniqueIdGenerator.GenerateUniqueId();
             _contacts.Add(storedContact);
-            SaveContacts(_contacts);
-            return true;
+            await SaveContacts();
+
+            return new ResponseResult<StoredContact>
+            {
+                Success = true,
+                Message = createdContact.Message,
+                Result = storedContact
+            };
         }
-        //lägg eventuellt till flera catch för specifika undantag
         catch (Exception ex)
         {
             Debug.WriteLine(ex.Message);
-            return false;
+
+            return new ResponseResult<StoredContact>
+            {
+                Success = false,
+                Message = "An error occured creating the contact."
+            };
         }
     }
 
-    public List<DisplayedContact> GetAllContacts()
+    //lägg eventuellt till flera catch för specifika undantag
+
+    public async Task<ResponseResult<List<DisplayedContact>>> GetAllContacts()
     {
         try
         {
-            _contacts = _fileService.LoadListFromFile<StoredContact>();
+            _contacts = await _contactRepository.GetFromFileAsync() ?? new List<StoredContact>();
             var list = new List<DisplayedContact>();
 
             foreach (var storedContact in _contacts)
             {
-                list.Add(ContactFactory.Create(storedContact));
+                var displayedContact = ContactFactory.Create(storedContact);
+
+                if (displayedContact.Success)
+                {
+                    list.Add(displayedContact.Result!);
+                }
+                else
+                {
+                    Debug.WriteLine("");
+                }   
             }
-            return list;
+            return new ResponseResult<List<DisplayedContact>>
+            {
+                Success = true,
+                Result = list
+            };
         }
         catch (Exception ex)
         {
             Debug.WriteLine(ex.Message);
-            return new List<DisplayedContact>();
+
+            return new ResponseResult<List<DisplayedContact>>
+            {
+                Success = false,
+                Message = "An error occured creating displayedContact.",
+                Result = new List<DisplayedContact>()
+            };
         }
     }
+
+
+    //public List<DisplayedContact> GetAllContacts()
+    //{
+    //    try
+    //    {
+    //        _contacts = _contactRepository.GetFromFile() ?? new List<StoredContact>();
+    //        var list = new List<DisplayedContact>();
+
+    //        foreach (var storedContact in _contacts)
+    //        {
+    //            list.Add(ContactFactory.Create(storedContact));
+    //        }
+    //        return list;
+    //    }
+
+    //    catch (Exception ex)
+    //    {
+    //        Debug.WriteLine(ex.Message);
+    //        return new List<DisplayedContact>();
+    //    }
+    //}
 
     public StoredContact GetStoredContactById(string contactId)
     {
@@ -67,7 +135,7 @@ public class ContactService : IContactService
 
     }
 
-    public bool DeleteContact(int index)
+    public async Task<bool> DeleteContact(int index)
     {
         if (index < 0 || index >= _contacts.Count)
         {
@@ -77,7 +145,7 @@ public class ContactService : IContactService
         try
         {
             _contacts.RemoveAt(index);
-            SaveContacts(_contacts);
+            await SaveContacts();
             return true;
         }
         catch (Exception ex)
@@ -87,11 +155,11 @@ public class ContactService : IContactService
         }
     }
 
-    public void SaveContacts<T>(List<T> contacts) where T : class
+    public async Task SaveContacts()
     {
         try
         {
-            _fileService.SaveListToFile(contacts);
+            await _contactRepository.SaveToFileAsync(_contacts);
         }
         catch (Exception ex)
         {
