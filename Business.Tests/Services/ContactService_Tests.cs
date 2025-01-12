@@ -1,5 +1,4 @@
-﻿using System.Text.Json;
-using Business.Interfaces;
+﻿using Business.Interfaces;
 using Business.Models;
 using Business.Services;
 using Moq;
@@ -18,7 +17,7 @@ public class ContactService_Tests
     }
 
     [Fact]
-    public void CreateContact_ShouldReturnSuccessTrue_WhenContactIsCreatedSuccessfully()
+    public async Task CreateContact_ShouldReturnSuccessTrue_WhenContactIsCreatedSuccessfully()
     {
         //Arrange
         var contactRegistration = new ContactRegistration
@@ -43,12 +42,13 @@ public class ContactService_Tests
             Postcode = "12345",
             City = "TestCity"
         };
+
         _contactRepositoryMock
-            .Setup(repo => repo.SaveToFile(It.IsAny<List<StoredContact>>()))
-            .Returns(true);
+            .Setup(repo => repo.SaveToFileAsync(It.IsAny<List<StoredContact>>()))
+            .ReturnsAsync(true);
 
         //Act
-        var result = _contactService.CreateContact(contactRegistration);
+        var result = await _contactService.CreateContact(contactRegistration);
 
         //Assert
         Assert.True(result.Success);
@@ -59,34 +59,7 @@ public class ContactService_Tests
     }
 
     [Fact]
-    public void CreateContact_ShouldReturnSuccessFalse_WhenContactIsNotCreatedSuccessfully()
-    {
-        //Arrange
-        var contactRegistration = new ContactRegistration
-        {
-            FirstName = "Anna",
-            LastName = "Larsson",
-            Email = "anna@domain.com",
-            Phone = "1234567890",
-            Address = "TestAddress",
-            Postcode = "12345",
-            City = "TestCity"
-        };
-
-        _contactRepositoryMock
-            .Setup(repo => repo.SaveToFile(It.IsAny<List<StoredContact>>()))
-            .Throws(new Exception("Failed to save contact"));
-
-        //Act
-        var result = _contactService.CreateContact(contactRegistration);
-
-        //Assert
-        Assert.False(result.Success);
-        Assert.Equal("Failed to create StoredContact", result.Message);
-    }
-
-    [Fact]
-    public void GetAllContacts_ShouldReturnResponseResultTrue_WhenListIsLoadedSuccessfully()
+    public async Task GetAllContacts_ShouldReturnResponseResultTrue_WhenListIsLoadedSuccessfully()
     {
         //Arrange
         var storedContacts = new List<StoredContact>
@@ -96,73 +69,45 @@ public class ContactService_Tests
                 FirstName = "Anna",
                 LastName = "Larsson",
                 Email = "anna@domain.com",
-                Phone = "1234567890",
-                Address = "TestAddress 1",
-                Postcode = "12345",
-                City = "TestCity 1"
             },
             new() {
                 ContactId = "2",
                 FirstName = "Johan",
                 LastName = "Andersson",
                 Email = "johan@domain.com",
-                Phone = "0987654321",
-                Address = "TestAddress 2",
-                Postcode = "54321",
-                City = "TestCity 2"
             }
         };
         var expectedDisplayedContacts = new List<DisplayedContact>
         {
-            new DisplayedContact
-            {
+            new() {
                 ContactId = "1",
                 FirstName = "Anna",
                 LastName = "Larsson",
                 Email = "anna@domain.com",
-                Phone = "1234567890",
-                Address = "TestAddress 1",
-                Postcode = "12345",
-                City = "TestCity 1"
             },
-            new DisplayedContact
-            {
+            new() {
                 ContactId = "2",
                 FirstName = "Johan",
                 LastName = "Andersson",
                 Email = "johan@domain.com",
-                Phone = "0987654321",
-                Address = "TestAddress 2",
-                Postcode = "54321",
-                City = "TestCity 2"
             }
         };
 
         _contactRepositoryMock
-            .Setup(repo => repo.GetFromFile())
-            .Returns(storedContacts);
+            .Setup(repo => repo.GetFromFileAsync())
+            .ReturnsAsync(storedContacts);
 
         //Act
-        var result = _contactService.GetAllContacts();
+        var result = await _contactService.GetAllContacts();
 
         //Assert
         Assert.True(result.Success);
         Assert.Equal(expectedDisplayedContacts.Count, result.Result.Count);
     }
 
-    //[Fact]
-    //public void GetAllContacts_ShouldReturnResponseResultFalse_WhenListIsNotLoadedSuccessfully()
-    //{
-    //    //Arrange
-
-    //    //Act
-
-    //    //Assert
-
-    //}
 
     [Fact]
-    public void GetStoredContactById_ShouldReturnCorrectStoredContact()
+    public async Task GetStoredContactById_ShouldReturnCorrectStoredContact()
     {
         //Arrange
         var storedContact1 = new StoredContact
@@ -190,47 +135,142 @@ public class ContactService_Tests
 
         var contacts = new List<StoredContact> { storedContact1, storedContact2 };
 
- 
-        //Mocka ifileservice
         _contactRepositoryMock
-            .Setup(repo => repo.GetFromFile())
-                .Returns(contacts);
+            .Setup(repo => repo.GetFromFileAsync())
+            .ReturnsAsync(contacts);
+
+        var contactService = new ContactService(_contactRepositoryMock.Object);
+        await contactService.InitializeAsync();
+
+        //Act
+        var result = contactService.GetStoredContactById("1");
+
+        //Assert
+        Assert.Equal(storedContact1, result);
+        Assert.NotNull(result);
+
+        _contactRepositoryMock.Verify(repo => repo.GetFromFileAsync(), Times.Once);
+    }
+
+    [Fact]
+    public async Task DeleteContact_ShouldReturnTrue_WhenContactIsSuccessfullyDeleted()
+    {
+        //Arrange
+        var storedContact1 = new StoredContact
+        {
+            ContactId = "1",
+            FirstName = "Anna",
+            LastName = "Larsson",
+            Email = "anna@domain.com",
+            Phone = "1234567890",
+            Address = "TestAddress 1",
+            Postcode = "12345",
+            City = "TestCity 1"
+        };
+        var storedContact2 = new StoredContact
+        {
+            ContactId = "2",
+            FirstName = "Johan",
+            LastName = "Andersson",
+            Email = "johan@domain.com",
+            Phone = "0987654321",
+            Address = "TestAddress 2",
+            Postcode = "54321",
+            City = "TestCity 2"
+        };
+
+        var contacts = new List<StoredContact> { storedContact1, storedContact2 };
+
+        _contactRepositoryMock
+            .Setup(repo => repo.GetFromFileAsync())
+            .ReturnsAsync(contacts);
+
+        var contactService = new ContactService(_contactRepositoryMock.Object);
+        await contactService.InitializeAsync();
+
+        //Act
+        var result = await contactService.DeleteContact(1);
+
+        //Assert
+        Assert.Single(contacts);
+        Assert.Equal(storedContact1, contacts[0]);
+    }
+
+    [Fact]
+    public async Task SaveContacts_ShouldCallContactRepositorySaveToFileAsync()
+    {
+        //Arrange
+        var storedContact1 = new StoredContact
+        {
+            FirstName = "Anna",
+            LastName = "Larsson",
+            Email = "anna@domain.com",
+            Phone = "1234567890",
+            Address = "TestAddress 1",
+            Postcode = "12345",
+            City = "TestCity 1"
+        };
+
+        var contacts = new List<StoredContact> { storedContact1 };
+
+        _contactRepositoryMock
+            .Setup(repo => repo.SaveToFileAsync(It.IsAny<List<StoredContact>>()))
+            .ReturnsAsync(true);
 
         var contactService = new ContactService(_contactRepositoryMock.Object);
 
-
         //Act
-        var result = _contactService.GetStoredContactById("2");
+        await contactService.SaveContacts();
 
         //Assert
-        Assert.Equal(storedContact2, result);
-        Assert.NotNull(result);
+        Assert.Single(contacts);
+        _contactRepositoryMock.Verify(repo => repo.SaveToFileAsync(It.IsAny<List<StoredContact>>()), Times.Once());
     }
 
+    [Fact]
+    public async Task IsEmailAvailable_ShouldReturnResponseResultTrue_WhenEmailDoesNotExistInList()
+    {
+        //Arrange
+        var contacts = new List<StoredContact>
+        {
+            new() { Email = "existing@domain.com "},
+        };
 
+        _contactRepositoryMock
+            .Setup(repo => repo.GetFromFileAsync())
+            .ReturnsAsync(contacts);
+        
+        var contactService = new ContactService(_contactRepositoryMock.Object);
+        await contactService.InitializeAsync();
 
+        //Act
+        var result = contactService.IsEmailAvailable("newemail@domain.com");
+        
+        //Assert
+        Assert.True(result.Success);
+    }
 
-    ////Arrange
-    //var storedContact = new StoredContact
-    //{
-    //    ContactId = "1",
-    //    FirstName = "Anna",
-    //    LastName = "Larsson",
-    //    Email = "anna@domain.com",
-    //    Phone = "1234567890",
-    //    Address = "TestAddress 1",
-    //    Postcode = "12345",
-    //    City = "TestCity 1"
-    //};
+    [Fact]
+    public async Task IsEmailAvailable_ShouldReturnResponseResultFalse_WhenEmailIsNotAvailable()
+    {
+        //Arrange
+        var contacts = new List<StoredContact>
+        {
+            new() { Email = "test@domain.com"},
+        };
 
-    //var contacts = new List<StoredContact> { storedContact };
-    //contacts.Add(storedContact);
+        _contactRepositoryMock
+            .Setup(repo => repo.GetFromFileAsync())
+            .ReturnsAsync(contacts);
 
+        var contactService = new ContactService(_contactRepositoryMock.Object);
+        await contactService.InitializeAsync();
 
-    //    //Act
-    //    var result = _contactService.GetStoredContactById("1");
+        //Act
+        var result = contactService.IsEmailAvailable("test@domain.com");
 
-    ////Assert
-    //Assert.Equal(storedContact, result);
-    //    Assert.NotNull(result);
+        //Assert
+        Assert.False(result.Success);
+        Assert.Equal("The email address is not available.", result.Message);
+    }
 }

@@ -16,7 +16,6 @@ public class ContactRegistration : BaseContact
     [RegularExpression(@"^[^@\s]+@[^@\s]+\.[^@\s]{2,}$", ErrorMessage = "Invalid email address")]
     public override string Email { get; set; } = null!;
 
-    [Phone]
     [RegularExpression(@"^\+?[0-9]{1,4}?[-.\s]?(\(?[0-9]{1,3}?\)?[-.\s]?)*[0-9]{3,}$", ErrorMessage = "Invalid phone number")]
     public override string Phone { get; set; } = null!;
 

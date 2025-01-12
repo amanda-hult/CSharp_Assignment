@@ -5,19 +5,15 @@ namespace Business.Services;
 
 public class FileService : IFileService
 {
-
     private readonly string _directoryPath;
     private readonly string _filePath;
-
 
     public FileService(string directoryPath = "Data", string fileName = "list.json")
     {
         _directoryPath = directoryPath;
         _filePath = Path.Combine(directoryPath, fileName);
-
     }
 
-    //implementera async/await
     public async Task<bool> SaveListToFileAsync<T>(string content)
     {
         try

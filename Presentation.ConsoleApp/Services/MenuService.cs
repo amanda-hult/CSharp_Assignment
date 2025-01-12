@@ -85,7 +85,6 @@ public class MenuService : IMenuService
         DisplayHelper.ShowMessage("Press enter to return to main menu.", pause: true);
     }
 
-    //try/catch?
     public async Task ShowAllContacts()
     {
         var response = await _contactService.GetAllContacts();
@@ -264,8 +263,6 @@ public class MenuService : IMenuService
         DisplayHelper.ShowMessage("Invalid input. Try Again.", pause: true);
     }
 
-
-
     public async Task EditSelectedContact(DisplayedContact selectedContact)
     {
         Console.Clear();
@@ -301,7 +298,6 @@ public class MenuService : IMenuService
             if (result)
             {
                 DisplayHelper.ShowMessage($"Contact {contactToDelete.FirstName} {contactToDelete.LastName} was successfully deleted.", pause: false);
-                //_contactService.GetAllContacts();
             }
             else
             {

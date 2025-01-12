@@ -1,19 +1,12 @@
 ﻿using Business.Interfaces;
-using Moq;
+using Business.Services;
 
 namespace Business.Tests.Services;
 
 public class FileService_Tests
 {
-    private readonly Mock<IFileService> _fileServiceMock;
-
-    public FileService_Tests()
-    {
-        _fileServiceMock = new Mock<IFileService> ();
-    }
-
     [Fact]
-    public void SaveListToFile_ShouldReturnTrue_WhenFileIsSavesSuccessfully()
+    public async Task SaveListToFileAsync_ShouldReturnTrue_WhenFileIsSavedSuccessfully()
     {
         //Arrange
         var content = @"[
@@ -23,51 +16,78 @@ public class FileService_Tests
             ""Email"": ""john.doe@example.com""
             }
         ]";
+        var directoryPath = Path.Combine(Path.GetTempPath(), "directory");
+        var fileName = "testfile.json";
+        var filePath = Path.Combine(directoryPath, fileName);
 
-        _fileServiceMock
-            .Setup(fs => fs.SaveListToFile<string>(content))
-            .Returns(true);
+        IFileService fileService = new FileService(directoryPath, fileName);
 
-        //Act
-        var result = _fileServiceMock.Object.SaveListToFile<string>(content);
+        try
+        {
+            //Act
+            var result = await fileService.SaveListToFileAsync<string>(content);
 
-        //Assert
-        Assert.True(result);
-        _fileServiceMock.Verify(fs => fs.SaveListToFile<string>(content), Times.Once());
+            //Assert
+            Assert.True(result);
+        }
+        finally
+        {
+            if (File.Exists(fileName)) File.Delete(fileName);
+        }
     }
 
 
     [Fact]
-    public void LoadListFromFile_ShouldReturnCorrectContent()
+    public async Task LoadListFromFileAsync_ShouldReturnCorrectContent()
     {
         //Arrange
-        var content = "Test Content";
+        var content = @"[
+            {
+            ""Id"": ""12345"",
+            ""Name"": ""John Doe"",
+            ""Email"": ""john.doe@example.com""
+            }
+        ]";
+        var directoryPath = Path.Combine(Path.GetTempPath(), "directory");
+        var fileName = "testfile.json";
+        var filePath = Path.Combine(directoryPath, fileName);
+        await File.WriteAllTextAsync(filePath, content);
 
-        _fileServiceMock
-        .Setup(fs => fs.LoadListFromFile<string>())
-        .Returns(content);
+        IFileService fileService = new FileService(directoryPath, fileName);
 
-        //Act
-        var result = _fileServiceMock.Object.LoadListFromFile<string>();
+        try
+        {
+            //Act
+            var result = await fileService.LoadListFromFileAsync<string>();
 
-        //Assert
-        Assert.Equal(content, result);
-        _fileServiceMock.Verify(fs => fs.LoadListFromFile<string>(), Times.Once());
+            //Assert
+            Assert.Equal(content, result);
+        }
+        finally
+        {
+            if (File.Exists(fileName)) File.Delete(fileName);
+        }
+
     }
 
+
     [Fact]
-    public void LoadListFromFile_ShouldReturnNull_WhenFileDoesNotExists()
+    public async Task LoadListFromFileAsync_ShouldReturnNull_WhenFileDoesNotExists()
     {
         //Arrange
-        _fileServiceMock
-        .Setup(fs => fs.LoadListFromFile<string>())
-        .Returns((string)null!);
+        var directoryPath = Path.Combine(Path.GetTempPath(), "testdirectory");
+        var fileName = "testfile.json";
+        var filePath = Path.Combine(directoryPath, fileName);
+
+        if (Directory.Exists(directoryPath))
+            Directory.Delete(directoryPath, true);
+
+        IFileService fileService = new FileService(directoryPath, fileName);
 
         //Act
-        var result = _fileServiceMock.Object.LoadListFromFile<string>();
+        var result = await fileService.LoadListFromFileAsync<string>();
 
         //Assert
         Assert.Null(result);
-        _fileServiceMock.Verify(fs => fs.LoadListFromFile<string>(), Times.Once());
     }
 }

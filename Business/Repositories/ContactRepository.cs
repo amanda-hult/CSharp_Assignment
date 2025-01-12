@@ -6,7 +6,6 @@ namespace Business.Repositories;
 
 public class ContactRepository<T> : IContactRepository<T>
 {
-
     private readonly IFileService _fileService;
     private readonly JsonSerializerOptions _jsonSerializerOptions;
 
@@ -53,7 +52,5 @@ public class ContactRepository<T> : IContactRepository<T>
             Debug.WriteLine(ex.Message);
             return null;
         }
-
-
     }
 }

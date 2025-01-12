@@ -1,13 +1,11 @@
 ﻿using System.ComponentModel.DataAnnotations;
 using Business.Interfaces;
-using Business.Models;
 
 namespace Business.Helpers;
 
 public class InputValidator
 {
     private readonly IContactService _contactService;
-
     public InputValidator(IContactService contactService)
     {
         _contactService = contactService;

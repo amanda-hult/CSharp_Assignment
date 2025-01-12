@@ -34,7 +34,6 @@ public class StoredContact : BaseContact
 
 
 
-
     //empty constructor to make serialization possible
     public StoredContact() { }
 }
