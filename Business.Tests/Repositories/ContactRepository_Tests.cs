@@ -22,14 +22,14 @@ public class ContactRepository_Tests
         //Arrange
         var list = new List<TestModel>
         {
-            new TestModel { Id = "1", Name = "Test Name", Email = "Test@email" }
+            new() { Id = "1", Name = "Test Name", Email = "Test@email" }
         };
+        string expectedJson = JsonSerializer.Serialize(list, new JsonSerializerOptions { WriteIndented = true });
 
         //Act
         var result = _contactRepository.Serialize(list);
 
         //Assert
-        var expectedJson = JsonSerializer.Serialize(list, new JsonSerializerOptions { WriteIndented = true });
         Assert.Equal(expectedJson, result);
     }
 
@@ -49,32 +49,35 @@ public class ContactRepository_Tests
         var result = _contactRepository.Deserialize(json);
 
         //Assert
-        Assert.Equal("12345", result[0].Id);
+        Assert.Equal("12345", result![0].Id);
         Assert.NotNull(result);
         Assert.Equal("John Doe", result[0].Name);
         Assert.Equal("john.doe@example.com", result[0].Email);
     }
 
     [Fact]
-    public void SaveToFile_ShouldCallFileServiceSaveListToFile()
+    public async Task SaveToFileAsync_ShouldCallFileServiceSaveListToFileAsync()
     {
         //Arrange
         var list = new List<TestModel>
         {
             new TestModel { Id = "1", Name = "Test Name", Email = "Test@email.com" }
         };
-        _fileServiceMock.Setup(fs => fs.SaveListToFile<TestModel>(It.IsAny<string>())).Returns(true);
+        var serializedList = JsonSerializer.Serialize(list, new JsonSerializerOptions { WriteIndented = true });
+
+        _fileServiceMock.Setup(fs => fs.SaveListToFileAsync<TestModel>(It.Is<string>(json => json == serializedList)))
+            .ReturnsAsync(true);
 
         //Act
-        var result = _contactRepository.SaveToFile(list);
+        var result = await _contactRepository.SaveToFileAsync(list);
 
         //Assert
         Assert.True(result);
-        _fileServiceMock.Verify(fs => fs.SaveListToFile<TestModel>(It.IsAny<string>()), Times.Once());
+        _fileServiceMock.Verify(fs => fs.SaveListToFileAsync<TestModel>(It.Is<string>(json => json == serializedList)), Times.Once());
     }
 
     [Fact]
-    public void GetFromFile_ShouldReturnList()
+    public async Task GetFromFileAsync_ShouldReturnList()
     {
         //Arrange
         var json = @"[
@@ -84,13 +87,15 @@ public class ContactRepository_Tests
             ""Email"": ""john.doe@example.com""
             }
         ]";
-        _fileServiceMock.Setup(fs => fs.LoadListFromFile<TestModel>()).Returns(json);
+        var deserializedList = JsonSerializer.Deserialize<List<TestModel>>(json, new JsonSerializerOptions { WriteIndented = true });
+
+        _fileServiceMock.Setup(fs => fs.LoadListFromFileAsync<TestModel>()).ReturnsAsync(json);
 
         //Act
-        var result = _contactRepository.GetFromFile();
+        var result = await _contactRepository.GetFromFileAsync();
 
         //Assert
-        Assert.Equal("12345", result[0].Id);
+        Assert.Equal("12345", result![0].Id);
         Assert.NotNull(result);
         Assert.Equal("John Doe", result[0].Name);
     }

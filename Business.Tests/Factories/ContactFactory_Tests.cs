@@ -43,7 +43,7 @@ public class ContactFactory_Tests
         ContactRegistration? contactRegistration = null;
 
         //Act
-        var result = ContactFactory.Create(contactRegistration);
+        var result = ContactFactory.Create(contactRegistration!);
 
         //Assert
         Assert.False(result.Success);

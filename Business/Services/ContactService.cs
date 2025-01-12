@@ -60,8 +60,6 @@ public class ContactService : IContactService
         }
     }
 
-    //lägg eventuellt till flera catch för specifika undantag
-
     public async Task<ResponseResult<List<DisplayedContact>>> GetAllContacts()
     {
         try
@@ -100,28 +98,6 @@ public class ContactService : IContactService
             };
         }
     }
-
-
-    //public List<DisplayedContact> GetAllContacts()
-    //{
-    //    try
-    //    {
-    //        _contacts = _contactRepository.GetFromFile() ?? new List<StoredContact>();
-    //        var list = new List<DisplayedContact>();
-
-    //        foreach (var storedContact in _contacts)
-    //        {
-    //            list.Add(ContactFactory.Create(storedContact));
-    //        }
-    //        return list;
-    //    }
-
-    //    catch (Exception ex)
-    //    {
-    //        Debug.WriteLine(ex.Message);
-    //        return new List<DisplayedContact>();
-    //    }
-    //}
 
     public StoredContact GetStoredContactById(string contactId)
     {
